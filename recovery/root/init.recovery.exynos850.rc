@@ -1,10 +1,9 @@
-include /init.recovery.display.rc
-include /init.recovery.essentials.rc
-include /init.recovery.samsung.rc
-include /init.screen.touch.rc
-include /init.sec-charger.rc
-include /servicemanager.recovery.rc
-include /ueventd.rc
+import /init.recovery.display.rc
+import /init.recovery.essentials.rc
+import /init.recovery.samsung.rc
+import /init.screen.touch.rc
+import /init.sec-charger.rc
+import /servicemanager.recovery.rc
 
 on init
     write /proc/sys/kernel/hung_task_timeout_secs 0
@@ -19,4 +18,4 @@ on fs
     wait /dev/block/platform/12100000.dwmmc0
     symlink /dev/block/platform/12100000.dwmmc0 /dev/block/bootdevice
     symlink /dev/block/platform/12100000.dwmmc0/by-name /dev/block/by-name
-    symlink /dev/block/platorm/12100000.dwmmc0/by-name/up_param /dev/block/param
+    symlink /dev/block/platform/12100000.dwmmc0/by-name/up_param /dev/block/param
