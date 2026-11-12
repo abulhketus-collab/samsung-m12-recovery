@@ -1,0 +1,100 @@
+name: Build OrangeFox / TWRP for Samsung Galaxy M12
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Recovery Image
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Maximize Build Space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo apt-get autoremove -y
+          sudo apt-get clean
+          df -h
+
+      - name: Set up Build Environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            binutils-aarch64-linux-gnu bison build-essential ccache curl flex \
+            g++-multilib gcc-multilib git gnupg gperf imagemagick lib32ncurses5-dev \
+            lib32readline-dev lib32z1-dev liblz4-tool libncurses5 libncurses5-dev \
+            libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzma lzop pngcrush \
+            rsync schedtool squashfs-tools xsltproc zip zlib1g-dev python3 \
+            python-is-python3 libelf-dev openjdk-8-jdk tar
+
+      - name: Install Repo Tool
+        run: |
+          mkdir -p ~/bin
+          curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
+          chmod a+x ~/bin/repo
+          sudo ln -sf ~/bin/repo /usr/bin/repo
+
+      - name: Git Global Config
+        run: |
+          git config --global user.name "DevOps Builder"
+          git config --global user.email "builder@kernel.local"
+
+      - name: Initialize Minimal TWRP / OrangeFox Manifest
+        run: |
+          mkdir -p ~/work
+          cd ~/work
+          repo init --depth=1 -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-12.1
+
+      - name: Sync Manifest
+        run: |
+          cd ~/work
+          repo sync -c --no-clone-bundle --no-tags --optimized-fetch --prune -j$(nproc --all)
+
+      - name: Checkout Device Tree
+        uses: actions/checkout@v4
+        with:
+          path: 'work/device/samsung/m12'
+
+      - name: Build Recovery
+        run: |
+          cd ~/work
+          source build/envsetup.sh
+          export ALLOW_MISSING_DEPENDENCIES=true
+          export BOARD_RAMDISK_USE_LZMA=true
+          lunch twrp_m12-eng
+          mka recoveryimage -j$(nproc --all)
+
+      - name: Verify Recovery Image Size
+        run: |
+          cd ~/work
+          RECOVERY_IMG="out/target/product/m12/recovery.img"
+          if [ ! -f "$RECOVERY_IMG" ]; then
+            echo "ERROR: recovery.img was not generated!"
+            exit 1
+          fi
+          ACTUAL_SIZE=$(stat -c%s "$RECOVERY_IMG")
+          MAX_SIZE=55574528
+          echo "Generated recovery size: $ACTUAL_SIZE bytes (Max allowed: $MAX_SIZE bytes)"
+          if [ "$ACTUAL_SIZE" -gt "$MAX_SIZE" ]; then
+            echo "FATAL: recovery.img exceeds partition boundary! Flash will brick or fail."
+            exit 1
+          fi
+
+      - name: Pack Odin Flashable TAR & Generate MD5
+        run: |
+          cd ~/work/out/target/product/m12
+          echo -n "SEANDROIDENFORCE" >> recovery.img
+          tar -H ustar -c recovery.img > recovery.tar
+          md5sum recovery.tar > recovery.tar.md5
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Samsung-M12-Recovery-Bit9
+          path: |
+            ~/work/out/target/product/m12/recovery.img
+            ~/work/out/target/product/m12/recovery.tar
+            ~/work/out/target/product/m12/recovery.tar.md5

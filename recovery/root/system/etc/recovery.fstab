@@ -1,0 +1,13 @@
+# Android fstab file for recovery.
+# <src>                                <mnt_point>     <type>  <mnt_flags>                     <fs_mgr_flags>
+system                                 /system         auto    ro                              wait,logical,first_stage_mount
+vendor                                 /vendor         auto    ro                              wait,logical,first_stage_mount
+product                                /product        auto    ro                              wait,logical,first_stage_mount
+odm                                    /odm            auto    ro                              wait,logical,first_stage_mount
+
+/dev/block/by-name/metadata            /metadata       ext4    noatime,nosuid,nodev,discard    wait,formattable,first_stage_mount
+/dev/block/by-name/userdata            /data           f2fs    noatime,nosuid,nodev,discard    wait,check,formattable
+/dev/block/by-name/cache               /cache          ext4    noatime,nosuid,nodev            wait,formattable,check
+/dev/block/by-name/efs                 /efs            ext4    noatime,nosuid,nodev            wait,check
+/dev/block/by-name/sec_efs             /sec_efs        ext4    noatime,nosuid,nodev            wait,check
+/dev/block/by-name/misc                /misc           emmc    defaults                        defaults
