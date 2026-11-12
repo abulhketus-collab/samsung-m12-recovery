@@ -42,34 +42,42 @@ jobs:
           git config --global user.name "DevOps Builder"
           git config --global user.email "builder@kernel.local"
 
+      - name: Checkout Device Tree
+        uses: actions/checkout@v4
+        with:
+          path: 'dt_source'
+
       - name: Initialize Minimal TWRP / OrangeFox Manifest
         run: |
-          mkdir -p ~/work
-          cd ~/work
+          mkdir -p /home/runner/android
+          cd /home/runner/android
           repo init --depth=1 -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-12.1
 
       - name: Sync Manifest
         run: |
-          cd ~/work
+          cd /home/runner/android
           repo sync -c --no-clone-bundle --no-tags --optimized-fetch --prune -j$(nproc --all)
 
-      - name: Checkout Device Tree
-        uses: actions/checkout@v4
-        with:
-          path: 'work/device/samsung/m12'
+      - name: Place Device Tree
+        run: |
+          mkdir -p /home/runner/android/device/samsung/m12
+          cp -r dt_source/* /home/runner/android/device/samsung/m12/
+          echo "=== Device Tree Contents ==="
+          ls -la /home/runner/android/device/samsung/m12
 
       - name: Build Recovery
         run: |
-          cd ~/work
-          source build/envsetup.sh
+          cd /home/runner/android
           export ALLOW_MISSING_DEPENDENCIES=true
           export BOARD_RAMDISK_USE_LZMA=true
+          export CURR_DEVICE=m12
+          source build/envsetup.sh
           lunch twrp_m12-eng
           mka recoveryimage -j$(nproc --all)
 
       - name: Verify Recovery Image Size
         run: |
-          cd ~/work
+          cd /home/runner/android
           RECOVERY_IMG="out/target/product/m12/recovery.img"
           if [ ! -f "$RECOVERY_IMG" ]; then
             echo "ERROR: recovery.img was not generated!"
@@ -85,7 +93,7 @@ jobs:
 
       - name: Pack Odin Flashable TAR & Generate MD5
         run: |
-          cd ~/work/out/target/product/m12
+          cd /home/runner/android/out/target/product/m12
           echo -n "SEANDROIDENFORCE" >> recovery.img
           tar -H ustar -c recovery.img > recovery.tar
           md5sum recovery.tar > recovery.tar.md5
@@ -95,6 +103,6 @@ jobs:
         with:
           name: Samsung-M12-Recovery-Bit9
           path: |
-            ~/work/out/target/product/m12/recovery.img
-            ~/work/out/target/product/m12/recovery.tar
-            ~/work/out/target/product/m12/recovery.tar.md5
+            /home/runner/android/out/target/product/m12/recovery.img
+            /home/runner/android/out/target/product/m12/recovery.tar
+            /home/runner/android/out/target/product/m12/recovery.tar.md5
